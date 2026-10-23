@@ -40,6 +40,12 @@ NUMERIC_COLS = [
     "selected_by_percent", "ep_this", "ep_next",
 ]
 
+@st.cache_data(ttl=86400)
+def photo_exists(url):
+    try:
+        return requests.head(url, timeout=5).status_code == 200
+    except Exception:
+        return False
 
 @st.cache_data(ttl=600)  # reuse the result for 10 minutes
 def load_raw():

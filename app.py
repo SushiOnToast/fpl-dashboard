@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from data import (build_events, build_fixture_grids, build_league_table, build_match_list,
-                  default_gameweek, load_live, load_players, load_player_detail)
+                  default_gameweek, load_live, load_players, load_player_detail, photo_exists)
 
 st.set_page_config(page_title="FPL Dashboard", layout="wide")
 st.title("FPL Dashboard")
@@ -411,7 +411,11 @@ def player_detail_tab(players):
     p = info.loc[pid]
 
     img, text = st.columns([2, 5])
-    img.markdown(f'<img src="{p["photo_url"]}" width="200">', unsafe_allow_html=True)
+    if photo_exists(p["photo_url"]):
+        img.image(p["photo_url"], width=200)
+    else:
+        img.caption("No photo available")
+
     with text:
         st.subheader(f"{p['first_name']} {p['second_name']}")
         st.caption(f"{p['team_name']} | {p['position']}")
