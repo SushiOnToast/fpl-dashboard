@@ -6,7 +6,22 @@ from data import (build_events, build_fixture_grids, build_league_table, build_m
                   default_gameweek, load_live, load_players, load_player_detail, photo_exists)
 
 st.set_page_config(page_title="FPL Dashboard", layout="wide")
+st.markdown(
+    """
+    <style>
+    .block-container {padding-top: 2rem;}
+    [data-testid="stMetric"] {
+        background: #2a0a33; border-radius: 10px; padding: 12px 16px;
+    }
+    h1 {color: #e0b3ff;}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.title("FPL Dashboard")
+_gw = default_gameweek(build_match_list())
+st.caption(f"Current gameweek: {_gw}  |  Data refreshes every 10 minutes from the FPL API")
 
 players = load_players()
 
@@ -59,16 +74,17 @@ COLUMN_CONFIG = {
 def player_table_tab(players):
     teams = ["All"] + sorted(players["team_name"].unique())
 
-    c1, c2, c3 = st.columns(3)
-    position = c1.selectbox("Position", ["All", "Goalkeeper", "Defender", "Midfielder", "Forward"], key="players_position")
-    team = c2.selectbox("Team", teams, key="players_team")
-    sort_label = c3.selectbox("Sort by", list(SORT_OPTIONS), key="players_sort")
+    with st.container(border=True):
+        c1, c2, c3 = st.columns(3)
+        position = c1.selectbox("Position", ["All", "Goalkeeper", "Defender", "Midfielder", "Forward"], key="players_position")
+        team = c2.selectbox("Team", teams, key="players_team")
+        sort_label = c3.selectbox("Sort by", list(SORT_OPTIONS), key="players_sort")
 
-    c4, c5, c6, c7 = st.columns(4)
-    max_price = c4.slider("Max price (£m)", 4.0, 16.0, 16.0, 0.5, key="players_max_price")
-    min_minutes = c5.slider("Min minutes", 0, 900, 300, 30, key="players_min_minutes")
-    max_ownership = c6.slider("Max ownership %", 0, 100, 100, 1, key="players_max_own")
-    n_rows = c7.slider("Rows to show", 5, 50, 15, 5, key="players_rows")
+        c4, c5, c6, c7 = st.columns(4)
+        max_price = c4.slider("Max price (£m)", 4.0, 16.0, 16.0, 0.5, key="players_max_price")
+        min_minutes = c5.slider("Min minutes", 0, 900, 300, 30, key="players_min_minutes")
+        max_ownership = c6.slider("Max ownership %", 0, 100, 100, 1, key="players_max_own")
+        n_rows = c7.slider("Rows to show", 5, 50, 15, 5, key="players_rows")
 
     sort_col = SORT_OPTIONS[sort_label]
 
@@ -169,9 +185,10 @@ def fixtures_tab():
 
     # ---- match list for one gameweek ----
     st.subheader("Match list")
-    c1, c2 = st.columns(2)
-    gw = c1.selectbox("Gameweek", list(range(1, 39)), index=default_gw - 1, key="fixtures_gw")
-    team = c2.selectbox("Team", ["All"] + sorted(set(matches["home"]) | set(matches["away"])), key="fixtures_team")
+    with st.container(border=True):
+        c1, c2 = st.columns(2)
+        gw = c1.selectbox("Gameweek", list(range(1, 39)), index=default_gw - 1, key="fixtures_gw")
+        team = c2.selectbox("Team", ["All"] + sorted(set(matches["home"]) | set(matches["away"])), key="fixtures_team")
 
     df = matches[matches["event"] == gw]
     if team != "All":
@@ -191,10 +208,10 @@ def fixtures_tab():
     # ---- heatmap ----
     st.subheader("Fixture heatmap")
     diff_grid, text_grid, hover_grid, done_grid = build_fixture_grids()
-
-    c3, c4 = st.columns([2, 1])
-    start, end = c3.slider("Gameweeks", 1, 38, (default_gw, min(default_gw + 4, 38)), key="fixtures_range")
-    team_pick = c4.selectbox("Show", ["All teams"] + list(diff_grid.index), key="fixtures_heatmap_team")
+    with st.container(border=True):
+        c3, c4 = st.columns([2, 1])
+        start, end = c3.slider("Gameweeks", 1, 38, (default_gw, min(default_gw + 4, 38)), key="fixtures_range")
+        team_pick = c4.selectbox("Show", ["All teams"] + list(diff_grid.index), key="fixtures_heatmap_team")
 
     cols = [c for c in diff_grid.columns if start <= c <= end]
     d, t, hv = diff_grid[cols], text_grid[cols], hover_grid[cols]
@@ -256,17 +273,18 @@ TRANSFER_CONFIG = {
 def transfers_tab(players):
     # ---------- movers ----------
     st.subheader("Movers")
-    c1, c2, c3, c4 = st.columns(4)
-    metric_label = c1.selectbox("Rank by", list(TRANSFER_METRICS), key="transfers_metric")
-    direction = c2.selectbox("Direction", ["Highest", "Lowest"], key="transfers_direction")
-    position = c3.selectbox("Position", ["All", "Goalkeeper", "Defender", "Midfielder", "Forward"],
-                            key="transfers_position")
-    team = c4.selectbox("Team", ["All"] + sorted(players["team_name"].unique()), key="transfers_team")
+    with st.container(border=True):
+        c1, c2, c3, c4 = st.columns(4)
+        metric_label = c1.selectbox("Rank by", list(TRANSFER_METRICS), key="transfers_metric")
+        direction = c2.selectbox("Direction", ["Highest", "Lowest"], key="transfers_direction")
+        position = c3.selectbox("Position", ["All", "Goalkeeper", "Defender", "Midfielder", "Forward"],
+                                key="transfers_position")
+        team = c4.selectbox("Team", ["All"] + sorted(players["team_name"].unique()), key="transfers_team")
 
-    c5, c6, c7 = st.columns(3)
-    reason = c5.selectbox("Reason", ["All", "injury/news", "form/other"], key="transfers_reason")
-    min_minutes = c6.slider("Min minutes", 0, 900, 0, 30, key="transfers_min_minutes")
-    n = c7.slider("Rows to show", 5, 30, 10, 5, key="transfers_rows")
+        c5, c6, c7 = st.columns(3)
+        reason = c5.selectbox("Reason", ["All", "injury/news", "form/other"], key="transfers_reason")
+        min_minutes = c6.slider("Min minutes", 0, 900, 0, 30, key="transfers_min_minutes")
+        n = c7.slider("Rows to show", 5, 30, 10, 5, key="transfers_rows")
 
     metric = TRANSFER_METRICS[metric_label]
     mask = players["minutes"] >= min_minutes
@@ -290,10 +308,11 @@ def transfers_tab(players):
     st.write("Low-owned players whose underlying attacking numbers are strong. "
              "Use the 300+ minute default, because per-90 rates from a few minutes are noise.")
 
-    d1, d2, d3 = st.columns(3)
-    max_own = d1.slider("Max ownership %", 1, 30, 10, key="diff_max_own")
-    diff_minutes = d2.slider("Min minutes", 0, 900, 300, 30, key="diff_min_minutes")
-    positions = d3.multiselect("Positions", ["Midfielder", "Forward"],
+    with st.container(border=True):
+        d1, d2, d3 = st.columns(3)
+        max_own = d1.slider("Max ownership %", 1, 30, 10, key="diff_max_own")
+        diff_minutes = d2.slider("Min minutes", 0, 900, 300, 30, key="diff_min_minutes")
+        positions = d3.multiselect("Positions", ["Midfielder", "Forward"],
                                default=["Midfielder", "Forward"], key="diff_positions")
 
     # position medians come from players with 300+ minutes, so tiny samples don't drag them
@@ -353,39 +372,45 @@ def gameweek_tab():
     cap_id = row["most_captained_id"]
     cap_pts = live.loc[live["id"] == cap_id, "total_points"]
     cap_pts = int(cap_pts.iloc[0]) if not cap_pts.empty else None
+    
+    with st.container(border=True):
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Average score", int(row["average_entry_score"]))
-    c2.metric("Highest score", int(row["highest_score"]))
-    c3.metric("Top scorer", row["top_element_name"], f"{int(row['top_points'])} pts", delta_color="off")
-    c4.metric("Most captained", row["most_captained_name"],
-              f"{cap_pts} pts (x2 = {cap_pts * 2})" if cap_pts is not None else "n/a",
-              delta_color="off")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Average score", int(row["average_entry_score"]))
+        c2.metric("Highest score", int(row["highest_score"]))
+        c3.metric("Top scorer", row["top_element_name"], f"{int(row['top_points'])} pts", delta_color="off")
+        c4.metric("Most captained", row["most_captained_name"],
+                f"{cap_pts} pts (x2 = {cap_pts * 2})" if cap_pts is not None else "n/a",
+                delta_color="off")
 
-    c5, c6, c7 = st.columns(3)
-    c5.metric("Most selected", row["most_selected_name"])
-    c6.metric("Most transferred in", row["most_transferred_in_name"])
-    c7.metric("Transfers made", f"{int(row['transfers_made']):,}")
-    st.caption("A captain's points count double, so the gap between the captain and the top scorer "
-               "is bigger than it looks. Transfers in GW1 show 0 because the first squad is free.")
+        c5, c6, c7 = st.columns(3)
+        c5.metric("Most selected", row["most_selected_name"])
+        c6.metric("Most transferred in", row["most_transferred_in_name"])
+        c7.metric("Transfers made", f"{int(row['transfers_made']):,}")
+        st.caption("A captain's points count double, so the gap between the captain and the top scorer "
+                "is bigger than it looks. Transfers in GW1 show 0 because the first squad is free.")
 
-    st.subheader(f"Top scorers: gameweek {gw}")
-    t1, t2 = st.columns(2)
-    position = t1.selectbox("Position", ["All", "Goalkeeper", "Defender", "Midfielder", "Forward"],
-                            key="gw_position")
-    n = t2.slider("Rows to show", 5, 30, 10, 5, key="gw_rows")
+    with st.container(border=True):
 
-    df = live if position == "All" else live[live["position"] == position]
-    df = df.sort_values("total_points", ascending=False).head(n)[GW_TABLE_COLS]
-    st.dataframe(df, column_config=GW_CONFIG, hide_index=True, use_container_width=True)
+        st.subheader(f"Top scorers: gameweek {gw}")
+        t1, t2 = st.columns(2)
+        position = t1.selectbox("Position", ["All", "Goalkeeper", "Defender", "Midfielder", "Forward"],
+                                key="gw_position")
+        n = t2.slider("Rows to show", 5, 30, 10, 5, key="gw_rows")
 
-    st.subheader("Season so far")
-    trend = events.melt(id_vars="id", value_vars=["average_entry_score", "highest_score"],
-                        var_name="measure", value_name="points")
-    trend["measure"] = trend["measure"].map({"average_entry_score": "Average", "highest_score": "Highest"})
-    fig = px.line(trend, x="id", y="points", color="measure", markers=True,
-                  labels={"id": "Gameweek", "points": "Manager score", "measure": ""})
-    st.plotly_chart(fig, use_container_width=True)
+        df = live if position == "All" else live[live["position"] == position]
+        df = df.sort_values("total_points", ascending=False).head(n)[GW_TABLE_COLS]
+        st.dataframe(df, column_config=GW_CONFIG, hide_index=True, use_container_width=True)
+
+    with st.container(border=True):
+
+        st.subheader("Season so far")
+        trend = events.melt(id_vars="id", value_vars=["average_entry_score", "highest_score"],
+                            var_name="measure", value_name="points")
+        trend["measure"] = trend["measure"].map({"average_entry_score": "Average", "highest_score": "Highest"})
+        fig = px.line(trend, x="id", y="points", color="measure", markers=True,
+                    labels={"id": "Gameweek", "points": "Manager score", "measure": ""})
+        st.plotly_chart(fig, use_container_width=True)
 
 DETAIL_EXTRA = {
     "Forward":    ["expected_goals", "expected_assists", "expected_goal_involvements"],
@@ -410,45 +435,50 @@ def player_detail_tab(players):
     pid = st.selectbox("Player", ids, format_func=label, key="detail_pid")
     p = info.loc[pid]
 
-    img, text = st.columns([2, 5])
-    if photo_exists(p["photo_url"]):
-        img.image(p["photo_url"], width=200)
-    else:
-        img.caption("No photo available")
+    with st.container(border=True):
+        img, text = st.columns([2, 5])
+        if photo_exists(p["photo_url"]):
+            img.image(p["photo_url"], width=200)
+        else:
+            img.caption("No photo available")
 
-    with text:
-        st.subheader(f"{p['first_name']} {p['second_name']}")
-        st.caption(f"{p['team_name']} | {p['position']}")
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Price", f"£{p['price']:.1f}m")
-        m2.metric("Total points", int(p["total_points"]))
-        m3.metric("Owned", f"{p['selected_by_percent']:.1f}%")
-        m4.metric("Minutes", int(p["minutes"]))
-    if p["news"]:
-        st.warning(p["news"])
+        with text:
+            st.subheader(f"{p['first_name']} {p['second_name']}")
+            st.caption(f"{p['team_name']} | {p['position']}")
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Price", f"£{p['price']:.1f}m")
+            m2.metric("Total points", int(p["total_points"]))
+            m3.metric("Owned", f"{p['selected_by_percent']:.1f}%")
+            m4.metric("Minutes", int(p["minutes"]))
+        if p["news"]:
+            st.warning(p["news"])
 
     hist, fixtures = load_player_detail(int(pid))
+    
+    with st.container(border=True):
 
-    st.subheader("Season so far")
-    if hist.empty:
-        st.info("No matches played yet.")
-    else:
-        # sum over double gameweeks so each round is one point on the line
-        per_round = hist.groupby("round", as_index=False)["total_points"].sum()
-        fig = px.line(per_round, x="round", y="total_points", markers=True,
-                      labels={"round": "Gameweek", "total_points": "Points"})
-        st.plotly_chart(fig, use_container_width=True)
+        st.subheader("Season so far")
+        if hist.empty:
+            st.info("No matches played yet.")
+        else:
+            # sum over double gameweeks so each round is one point on the line
+            per_round = hist.groupby("round", as_index=False)["total_points"].sum()
+            fig = px.line(per_round, x="round", y="total_points", markers=True,
+                        labels={"round": "Gameweek", "total_points": "Points"})
+            st.plotly_chart(fig, use_container_width=True)
 
-        cols = DETAIL_BASE + DETAIL_EXTRA[p["position"]]
-        st.dataframe(hist[cols].round(2), hide_index=True, use_container_width=True)
+            cols = DETAIL_BASE + DETAIL_EXTRA[p["position"]]
+            st.dataframe(hist[cols].round(2), hide_index=True, use_container_width=True)
 
-    st.subheader("Upcoming fixtures")
-    if fixtures.empty:
-        st.info("None scheduled.")
-    else:
-        st.dataframe(
-            fixtures.style.background_gradient(cmap="RdYlGn_r", subset=["difficulty"], vmin=1, vmax=5),
-            hide_index=True, use_container_width=True)
+    with st.container(border=True):
+
+        st.subheader("Upcoming fixtures")
+        if fixtures.empty:
+            st.info("None scheduled.")
+        else:
+            st.dataframe(
+                fixtures.style.background_gradient(cmap="RdYlGn_r", subset=["difficulty"], vmin=1, vmax=5),
+                hide_index=True, use_container_width=True)
 
 SECTIONS = ["Players", "Teams", "Fixtures", "Transfers", "Gameweek", "Player detail"]
 
@@ -458,7 +488,9 @@ if "goto" in st.session_state:
     st.session_state["nav"] = section
     st.session_state["detail_pid"] = pid
 
-section = st.radio("Section", SECTIONS, horizontal=True, key="nav", label_visibility="collapsed")
+with st.container(border=True):
+
+    section = st.radio("Section", SECTIONS, horizontal=True, key="nav", label_visibility="collapsed")
 
 if section == "Players":
     player_table_tab(players)
