@@ -1,7 +1,7 @@
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-
+import pandas as pd
 from data import (build_events, build_fixture_grids, build_league_table, build_match_list,
                   default_gameweek, load_live, load_players, load_player_detail, photo_exists)
 
@@ -480,7 +480,93 @@ def player_detail_tab(players):
                 fixtures.style.background_gradient(cmap="RdYlGn_r", subset=["difficulty"], vmin=1, vmax=5),
                 hide_index=True, use_container_width=True)
 
-SECTIONS = ["Players", "Teams", "Fixtures", "Transfers", "Gameweek", "Player detail"]
+COMPARE_ROWS = [
+    ("Price (£m)", "price", "{:.1f}", True),
+    ("Total points", "total_points", "{:.0f}", False),
+    ("Points per £m", "points_per_million", "{:.2f}", False),
+    ("Points per 90", "tp_per90", "{:.2f}", False),
+    ("Minutes", "minutes", "{:.0f}", False),
+    ("Goals", "goals_scored", "{:.0f}", False),
+    ("Assists", "assists", "{:.0f}", False),
+    ("xG", "expected_goals", "{:.2f}", False),
+    ("xA", "expected_assists", "{:.2f}", False),
+    ("xGI per 90", "xgi_per90", "{:.2f}", False),
+    ("xGC per 90", "xgc_per90", "{:.2f}", True),
+    ("DefCon per 90", "defcon_per90", "{:.2f}", False),
+    ("Bonus", "bonus", "{:.0f}", False),
+    ("Clean sheets", "clean_sheets", "{:.0f}", False),
+    ("Owned %", "selected_by_percent", "{:.1f}", False),
+]
+
+
+def compare_tab(players):
+    info = players.set_index("id")
+    ids = list(players.sort_values("web_name")["id"])
+
+    def label(pid):
+        r = info.loc[pid]
+        return f"{r['web_name']} ({r['team_name_short']})"
+
+    with st.container(border=True):
+        c1, c2 = st.columns(2)
+        a_id = c1.selectbox("Player A", ids, format_func=label, key="cmp_a")
+        b_id = c2.selectbox("Player B", ids, index=1, format_func=label, key="cmp_b")
+
+    if a_id == b_id:
+        st.info("Pick two different players.")
+        return
+    a, b = info.loc[a_id], info.loc[b_id]
+
+    with st.container(border=True):
+        col_a, col_b = st.columns(2)
+        for col, p in ((col_a, a), (col_b, b)):
+            with col:
+                st.subheader(p["web_name"])
+                st.caption(f"{p['team_name']} | {p['position']}")
+                if photo_exists(p["photo_url"]):
+                    st.image(p["photo_url"], width=140)
+                if p["news"]:
+                    st.warning(p["news"])
+
+    # stats table: the better value in each row is marked with a star
+    rows = []
+    for name, col, fmt, lower_better in COMPARE_ROWS:
+        va, vb = a[col], b[col]
+        fa = fmt.format(va) if pd.notna(va) else "-"
+        fb = fmt.format(vb) if pd.notna(vb) else "-"
+        if pd.notna(va) and pd.notna(vb) and va != vb and col not in ("minutes", "selected_by_percent"):
+            a_wins = (va < vb) if lower_better else (va > vb)
+            fa, fb = (fa + " ★", fb) if a_wins else (fa, fb + " ★")
+        rows.append({"Stat": name, a["web_name"]: fa, b["web_name"]: fb})
+
+    with st.container(border=True):
+        st.subheader("Side by side")
+        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+        st.caption("★ marks the better value. Minutes and ownership have no star, since more isn't "
+                   "'better'. Compare rates per 90 only when both players have 300+ minutes, and "
+                   "remember xGI and xGC mean little for goalkeepers and defenders respectively.")
+
+    # points per gameweek overlay
+    hist_a, _ = load_player_detail(int(a_id))
+    hist_b, _ = load_player_detail(int(b_id))
+    frames = []
+    for name, h in ((a["web_name"], hist_a), (b["web_name"], hist_b)):
+        if not h.empty:
+            per_round = h.groupby("round", as_index=False)["total_points"].sum()
+            per_round["player"] = name
+            frames.append(per_round)
+
+    with st.container(border=True):
+        st.subheader("Points per gameweek")
+        if frames:
+            both = pd.concat(frames)
+            fig = px.line(both, x="round", y="total_points", color="player", markers=True,
+                          labels={"round": "Gameweek", "total_points": "Points", "player": ""})
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Neither player has played yet.")
+
+SECTIONS = ["Players", "Teams", "Fixtures", "Transfers", "Gameweek", "Player detail", "Compare"]
 
 # a table click leaves a "goto" note; apply it BEFORE the radio is created
 if "goto" in st.session_state:
@@ -502,5 +588,7 @@ elif section == "Transfers":
     transfers_tab(players)
 elif section == "Gameweek":
     gameweek_tab()
-else:
+elif section == "Player detail":
     player_detail_tab(players)
+else:
+    compare_tab(players)
